@@ -20,6 +20,18 @@ const urlSchema = new Schema({
 // create model
 const Url = mongoose.model('Url',urlSchema);
 
+// check valid url function
+const isValidUrl = urlString=> {
+  let url;
+		try { 
+	      	url = new URL(urlString); 
+	    }
+	    catch(e){ 
+	      return false; 
+	    }
+	    return url.protocol === "http:" || url.protocol === "https:";
+}
+
 app.use(cors());
 app.use(bodyParser.urlencoded());
 
@@ -37,23 +49,29 @@ app.get('/api/hello', function(req, res) {
 // Post function find a shorturl in database
 app.post('/api/shorturl', async (req,res)=>{
   const input_url = req.body.url;
-  // search a url in database
-  const exits_url = await Url.findOne({original_url: input_url}).select('original_url short_url -_id');
-  // count data in database
-  const current_data = await Url.estimatedDocumentCount();
-
-  if(exits_url){
-    res.json(exits_url)
+  // check is valid url or not
+  if(!isValidUrl(input_url)){
+    // is not valid
+    res.json({ error: 'invalid url' });
   }else{
-    // not found insert new data
-    const newurl = new Url({
-      original_url: input_url,
-      short_url: current_data + 1
-    })
-    newurl.save();
+    // is valid url
+    // search a url in database
+    const url = await Url.findOne({original_url: input_url}).select('original_url short_url -_id');
+    // count data in database
+    const current_data = await Url.estimatedDocumentCount();
+  
+    if(!url){
+      // not found insert new data
+      const newurl = new Url({
+        original_url: input_url,
+        short_url: current_data + 1
+      })
+      await newurl.save();
+    }
     // query new data
-    const inserted_url = await Url.findOne({original_url: input_url}).select('original_url short_url -_id');
-    res.json(inserted_url);
+    const find_url = await Url.findOne({original_url: input_url}).select('original_url short_url -_id');
+
+    res.json(find_url);
   }
 })
 
